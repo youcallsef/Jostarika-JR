@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-// ملاحظة: استبدل هذا الاستيراد بالحزمة الفعلية التي تستخدمها لـ GGUF مثل llama_cpp_dart
-// import 'package:llama_cpp_dart/llama_cpp_dart.dart'; 
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // تهيئة قاعدة البيانات المحلية لضمان حفظ الشاتات عند الخروج
-  await Hive.initFlutter();
-  await Hive.openBox('chats_box');
-  
+void main() {
   runApp(const OfflineAIChatApp());
 }
 
@@ -19,7 +12,7 @@ class OfflineAIChatApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Qwen Offline AI',
+      title: 'JR_ai',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0A0E17),
         appBarTheme: const AppBarTheme(
@@ -27,7 +20,40 @@ class OfflineAIChatApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const ChatHomeScreen(),
+      home: const InitializerScreen(),
+    );
+  }
+}
+
+// شاشة تهيئة لمنع الشاشة الرمادية
+class InitializerScreen extends StatelessWidget {
+  const InitializerScreen({super.key});
+
+  Future<void> _initHive() async {
+    await Hive.initFlutter();
+    if (!Hive.isBoxOpen('chats_box')) {
+      await Hive.openBox('chats_box');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _initHive(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          return const ChatHomeScreen();
+        }
+        // شاشة حميمية أو سوداء مطابقة لتصميم التطبيق بدل الرمادي المزعج
+        return const Scaffold(
+          backgroundColor: Color(0xFF0A0E17),
+          body: Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFFD4AF37),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -47,18 +73,14 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
   
   final TextEditingController _controller = TextEditingController();
   bool isThinking = false;
-  // متغير وهمي لمحاكاة محرك النموذج (سيتم ربطه بملف GGUF الفعلي)
-  // LlamaBridge? aiModel; 
 
   @override
   void initState() {
     super.initState();
     chatBox = Hive.box('chats_box');
     _loadChatsList();
-    _initAIModel(); // تهيئة تحميل النموذج أوفلاين
   }
 
-  // تحميل الشاتات المحفوظة مسبقاً كي لا تضيع عند إغلاق التطبيق
   void _loadChatsList() {
     setState(() {
       chatKeys = chatBox.keys.map((e) => e.toString()).toList();
@@ -94,18 +116,6 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
     }
   }
 
-  // تهيئة نموذج الذكاء الاصطناعي وقراءة ملف GGUF من الأصول
-  Future<void> _initAIModel() async {
-    try {
-      // هنا يتم تحميل ملف الـ GGUF من مسار الأصول أو مسار الجهاز الداخلي
-      // مثال: aiModel = await LlamaBridge.loadModel("assets/models/qwen.gguf");
-      print("تم تهيئة بنية النموذج بنجاح جاهز للاستدعاء أوفلاين");
-    } catch (e) {
-      print("خطأ في تحميل النموذج: $e");
-    }
-  }
-
-  // إرسال الرسالة ومعالجتها محلياً عبر النموذج
   void _sendMessage() async {
     if (_controller.text.trim().isEmpty || isThinking) return;
 
@@ -119,16 +129,12 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
     });
     chatBox.put(currentChatKey, currentMessages);
 
-    // TODO: استبدال هذا الجزء بالاستدعاء الفعلي للنموذج من ملف GGUF
-    // String response = await aiModel.generateResponse(userText);
-    
-    // محاكاة استجابة حقيقية من النموذج محلياً
     await Future.delayed(const Duration(seconds: 2));
 
     String aiReply = "هذا رد من نموذج Qwen المحلي المعالج داخل جهازك بدون إنترنت.";
 
     setState(() {
-      currentMessages.removeLast(); // إزالة "جارٍ الرّد..."
+      currentMessages.removeLast();
       currentMessages.add({'sender': 'ai', 'text': aiReply});
       isThinking = false;
     });
@@ -147,17 +153,14 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
       drawer: _buildDrawer(),
       body: Stack(
         children: [
-          // خلفية الخطوط المنحنية المتدرجة
           Positioned.fill(
             child: CustomPaint(
               painter: CurvedLinesPainter(),
             ),
           ),
-          
           Column(
             children: [
               const SizedBox(height: 95),
-              // قائمة الرسائل
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -174,7 +177,6 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                         decoration: BoxDecoration(
                           color: isUser ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
                           borderRadius: BorderRadius.circular(20),
-                          // توهج بألوان الذهبي الغامق والأزرق
                           boxShadow: [
                             BoxShadow(
                               color: isUser 
@@ -220,8 +222,6 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
                   },
                 ),
               ),
-
-              // كبسولة إدخال الرسالة بتوهج الألوان
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Container(
@@ -331,7 +331,6 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
   }
 }
 
-// رسم الخطوط المنحنية في الخلفية
 class CurvedLinesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
